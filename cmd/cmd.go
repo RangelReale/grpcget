@@ -68,7 +68,7 @@ func NewCmd() *Cmd {
 			Action: ret.CmdList,
 		},
 		{
-			Name: "desc, describe",
+			Name: "desc",
 			Flags: []cli.Flag{
 				cli.StringSliceFlag{Name: "header", Usage: "Headers to send in name=value format."},
 			},

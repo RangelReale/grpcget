@@ -252,88 +252,90 @@ func (d *DefaultInvokeOutput) OutputInvoke(dmh *DynMsgHelper, value proto.Messag
 }
 
 func (d *DefaultInvokeOutput) DumpMessage(dmh *DynMsgHelper, level int, msg *dynamic.Message) error {
+	if msg == nil {
+		return nil
+	}
+
 	levelStr := strings.Repeat("\t", level)
 
 	for _, fld := range msg.GetKnownFields() {
-		if msg.HasField(fld) {
-			var value string
+		var value string
 
-			// check if has getter plugin
-			has_getter, getter_value, err := dmh.GetFieldValue(msg, fld)
-			if err != nil {
-				return err
+		// check if has getter plugin
+		has_getter, getter_value, err := dmh.GetFieldValue(msg, fld)
+		if err != nil {
+			return err
+		}
+		if has_getter {
+			value = getter_value
+		} else {
+			switch fld.GetType() {
+			case descriptor.FieldDescriptorProto_TYPE_STRING:
+				value = msg.GetField(fld).(string)
+				// INT32
+			case descriptor.FieldDescriptorProto_TYPE_SFIXED32,
+				descriptor.FieldDescriptorProto_TYPE_INT32,
+				descriptor.FieldDescriptorProto_TYPE_SINT32,
+				descriptor.FieldDescriptorProto_TYPE_ENUM:
+				value = fmt.Sprintf("%d", msg.GetField(fld).(int32))
+				// INT64
+			case descriptor.FieldDescriptorProto_TYPE_SFIXED64,
+				descriptor.FieldDescriptorProto_TYPE_INT64,
+				descriptor.FieldDescriptorProto_TYPE_SINT64:
+				value = fmt.Sprintf("%d", msg.GetField(fld).(int64))
+				// UINT32
+			case descriptor.FieldDescriptorProto_TYPE_FIXED32,
+				descriptor.FieldDescriptorProto_TYPE_UINT32:
+				value = fmt.Sprintf("%d", msg.GetField(fld).(uint32))
+				// UINT64
+			case descriptor.FieldDescriptorProto_TYPE_FIXED64,
+				descriptor.FieldDescriptorProto_TYPE_UINT64:
+				value = fmt.Sprintf("%d", msg.GetField(fld).(uint64))
+				// FLOAT32
+			case descriptor.FieldDescriptorProto_TYPE_FLOAT:
+				value = fmt.Sprintf("%f", msg.GetField(fld).(float32))
+				// FLOAT64
+			case descriptor.FieldDescriptorProto_TYPE_DOUBLE:
+				value = fmt.Sprintf("%f", msg.GetField(fld).(float64))
+				// BOOL
+			case descriptor.FieldDescriptorProto_TYPE_BOOL:
+				value = fmt.Sprintf("%v", msg.GetField(fld).(bool))
+			case descriptor.FieldDescriptorProto_TYPE_MESSAGE:
+				value = ""
+			default:
+				value = "Unknown"
 			}
-			if has_getter {
-				value = getter_value
-			} else {
-				switch fld.GetType() {
-				case descriptor.FieldDescriptorProto_TYPE_STRING:
-					value = msg.GetField(fld).(string)
-					// INT32
-				case descriptor.FieldDescriptorProto_TYPE_SFIXED32,
-					descriptor.FieldDescriptorProto_TYPE_INT32,
-					descriptor.FieldDescriptorProto_TYPE_SINT32,
-					descriptor.FieldDescriptorProto_TYPE_ENUM:
-					value = fmt.Sprintf("%d", msg.GetField(fld).(int32))
-					// INT64
-				case descriptor.FieldDescriptorProto_TYPE_SFIXED64,
-					descriptor.FieldDescriptorProto_TYPE_INT64,
-					descriptor.FieldDescriptorProto_TYPE_SINT64:
-					value = fmt.Sprintf("%d", msg.GetField(fld).(int64))
-					// UINT32
-				case descriptor.FieldDescriptorProto_TYPE_FIXED32,
-					descriptor.FieldDescriptorProto_TYPE_UINT32:
-					value = fmt.Sprintf("%d", msg.GetField(fld).(uint32))
-					// UINT64
-				case descriptor.FieldDescriptorProto_TYPE_FIXED64,
-					descriptor.FieldDescriptorProto_TYPE_UINT64:
-					value = fmt.Sprintf("%d", msg.GetField(fld).(uint64))
-					// FLOAT32
-				case descriptor.FieldDescriptorProto_TYPE_FLOAT:
-					value = fmt.Sprintf("%f", msg.GetField(fld).(float32))
-					// FLOAT64
-				case descriptor.FieldDescriptorProto_TYPE_DOUBLE:
-					value = fmt.Sprintf("%f", msg.GetField(fld).(float64))
-					// BOOL
-				case descriptor.FieldDescriptorProto_TYPE_BOOL:
-					value = fmt.Sprintf("%v", msg.GetField(fld).(bool))
-				case descriptor.FieldDescriptorProto_TYPE_MESSAGE:
-					value = ""
-				default:
-					value = "Unknown"
-				}
-			}
+		}
 
-			fmt.Fprintf(d.Out, "%s%s: %s\n", levelStr, fld.GetName(), value)
+		fmt.Fprintf(d.Out, "%s%s: %s\n", levelStr, fld.GetName(), value)
 
-			if !has_getter {
-				// Dump sub messages
-				switch fld.GetType() {
-				case descriptor.FieldDescriptorProto_TYPE_MESSAGE:
-					if fld.IsMap() {
-						// map fields have value of map[interface{}]interface{}
-						f_map := msg.GetField(fld).(map[interface{}]interface{})
+		if !has_getter {
+			// Dump sub messages
+			switch fld.GetType() {
+			case descriptor.FieldDescriptorProto_TYPE_MESSAGE:
+				if fld.IsMap() {
+					// map fields have value of map[interface{}]interface{}
+					f_map := msg.GetField(fld).(map[interface{}]interface{})
 
-						for ridx, ritem := range f_map {
-							fmt.Fprintf(d.Out, "%s\t- %v\n", levelStr, ridx)
-							err := d.DumpMessage(dmh, level+1, ritem.(*dynamic.Message))
-							if err != nil {
-								return err
-							}
-						}
-					} else if fld.IsRepeated() {
-						for ridx := 0; ridx < msg.FieldLength(fld); ridx++ {
-							fmt.Fprintf(d.Out, "%s\t-\n", levelStr)
-							err := d.DumpMessage(dmh, level+1, msg.GetRepeatedField(fld, ridx).(*dynamic.Message))
-							if err != nil {
-								return err
-							}
-						}
-					} else {
-						err := d.DumpMessage(dmh, level+1, msg.GetField(fld).(*dynamic.Message))
+					for ridx, ritem := range f_map {
+						fmt.Fprintf(d.Out, "%s\t- %v\n", levelStr, ridx)
+						err := d.DumpMessage(dmh, level+1, ritem.(*dynamic.Message))
 						if err != nil {
 							return err
 						}
+					}
+				} else if fld.IsRepeated() {
+					for ridx := 0; ridx < msg.FieldLength(fld); ridx++ {
+						fmt.Fprintf(d.Out, "%s\t-\n", levelStr)
+						err := d.DumpMessage(dmh, level+1, msg.GetRepeatedField(fld, ridx).(*dynamic.Message))
+						if err != nil {
+							return err
+						}
+					}
+				} else {
+					err := d.DumpMessage(dmh, level+1, msg.GetField(fld).(*dynamic.Message))
+					if err != nil {
+						return err
 					}
 				}
 			}
