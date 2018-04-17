@@ -49,6 +49,10 @@ You can create a field getter that allows you to omit the ".value" part:
 
 Set "DynMsgHelper" for details. 
     
+### acknowledgement
+
+This library is heavily based on [grpccurl](https://github.com/fullstorydev/grpcurl), and the packages it uses.    
+    
 ### author
 
 Rangel Reale (rangelspam@gmail.com)
