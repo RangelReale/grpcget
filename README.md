@@ -27,7 +27,7 @@ Invoke:
     
 ### library
 
-grpccurl is also a customizable library that you can use in your projects.
+grpcget is also a customizable library that you can use in your projects.
 
 It supports customizing setters and getters so you can define special handling for types that your application supports.
 
