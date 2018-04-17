@@ -1,9 +1,6 @@
 package grpcget
 
 import (
-	"fmt"
-	"strings"
-
 	"github.com/jhump/protoreflect/dynamic"
 )
 
@@ -25,7 +22,7 @@ func NewParameterInvokeParamSetter(params ...string) *ParameterInvokeParamSetter
 
 func (i *ParameterInvokeParamSetter) SetInvokeParam(dmh *DynMsgHelper, req *dynamic.Message) error {
 	for _, p := range i.Params {
-		argname, argvalue, err := i.parseArgumentParam(p)
+		argname, argvalue, err := ParseArgumentParam(p)
 		if err != nil {
 			return err
 		}
@@ -37,15 +34,6 @@ func (i *ParameterInvokeParamSetter) SetInvokeParam(dmh *DynMsgHelper, req *dyna
 	}
 
 	return nil
-}
-
-func (i *ParameterInvokeParamSetter) parseArgumentParam(argument string) (name string, value string, err error) {
-	args := strings.Split(argument, "=")
-	if len(args) != 2 {
-		return "", "", fmt.Errorf("Invoke param must have 2 values, have %d", len(args))
-	}
-
-	return args[0], args[1], nil
 }
 
 func WithInvokeParams(params ...string) InvokeOption {
