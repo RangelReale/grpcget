@@ -12,10 +12,13 @@ import (
 
 type DMHOption func(*dmhOptions)
 
+// DynMsgHelper is a helper for setting and getting values from a *dynamic.Message struct
+// It supports getter and setter customizations to support custom data types.
 type DynMsgHelper struct {
 	opts dmhOptions
 }
 
+// Creates a new DynMsgHelper
 func NewDynMsgHelper(opts ...DMHOption) *DynMsgHelper {
 	ret := &DynMsgHelper{}
 	for _, o := range opts {
@@ -24,6 +27,8 @@ func NewDynMsgHelper(opts ...DMHOption) *DynMsgHelper {
 	return ret
 }
 
+// Sets a parameter value into the message. The name can have "." to set values inside another messages, like
+// address.street_name.
 func (h *DynMsgHelper) SetParamValue(msg *dynamic.Message, name, value string) error {
 	fields := strings.SplitN(name, ".", 2)
 	if len(fields) == 0 {
@@ -55,6 +60,8 @@ func (h *DynMsgHelper) SetParamValue(msg *dynamic.Message, name, value string) e
 	return nil
 }
 
+// Sets the value of a field on the message.
+// It supports DynMsgHelperFieldSetter for types that are not scalar.
 func (h *DynMsgHelper) SetFieldParamValue(msg *dynamic.Message, fld *desc.FieldDescriptor, value string) error {
 	// set value
 	switch fld.GetType() {
@@ -136,6 +143,7 @@ func (h *DynMsgHelper) SetFieldParamValue(msg *dynamic.Message, fld *desc.FieldD
 	return nil
 }
 
+// Gets the value of a field using a DynMsgHelperFieldValueGetter
 func (h *DynMsgHelper) GetFieldValue(msg *dynamic.Message, fld *desc.FieldDescriptor) (ok bool, value string, err error) {
 	for _, fg := range h.opts.fieldValueGetters {
 		ok, value, err = fg.GetFieldValue(msg, fld)

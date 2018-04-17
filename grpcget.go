@@ -16,18 +16,22 @@ import (
 	"google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 )
 
+// Get options for GrpcGet
 type GetOption func(*getOptions)
 
+// GrpcGet is the client that talks to the gRPC server
 type GrpcGet struct {
 	opts getOptions
 }
 
+// Creates a new GrpcGet
 func NewGrpcGet(opts ...GetOption) *GrpcGet {
 	ret := &GrpcGet{}
 	ret.SetOpts(opts...)
 	return ret
 }
 
+// Creates a new GrpcGet without default outputs
 func NewGrpcGet_Default(opts ...GetOption) *GrpcGet {
 	nopts := []GetOption{
 		WithDefaultOutputs(os.Stdout),
@@ -38,6 +42,7 @@ func NewGrpcGet_Default(opts ...GetOption) *GrpcGet {
 	return NewGrpcGet(nopts...)
 }
 
+// Set options the same was as the "New" functions
 func (g *GrpcGet) SetOpts(opts ...GetOption) *GrpcGet {
 	for _, opt := range opts {
 		opt(&g.opts)
@@ -45,6 +50,7 @@ func (g *GrpcGet) SetOpts(opts ...GetOption) *GrpcGet {
 	return g
 }
 
+// Creates a connection using the ConnectionSupplier
 func (g *GrpcGet) checkConnection(ctx context.Context) (*grpc.ClientConn, error) {
 	if g.opts.connectionSupplier == nil {
 		return nil, errors.New("Must configure ConnectionSupplier to run this method")
@@ -53,6 +59,7 @@ func (g *GrpcGet) checkConnection(ctx context.Context) (*grpc.ClientConn, error)
 	return g.opts.connectionSupplier.GetConnection(ctx)
 }
 
+// creates a *grpcreflect.Client and a *grpc.ClientConn
 func (g *GrpcGet) checkRefClient(ctx context.Context) (*grpcreflect.Client, *grpc.ClientConn, error) {
 	conn, err := g.checkConnection(ctx)
 	if err != nil {
@@ -62,6 +69,7 @@ func (g *GrpcGet) checkRefClient(ctx context.Context) (*grpcreflect.Client, *grp
 	return grpcreflect.NewClient(ctx, grpc_reflection_v1alpha.NewServerReflectionClient(conn)), conn, nil
 }
 
+// List services and call ServiceListOutput.OutputServiceList
 func (g *GrpcGet) ListServices(ctx context.Context) error {
 	if g.opts.outputServiceList == nil {
 		return errors.New("Must configure OutputServiceList to run this method")
@@ -85,6 +93,7 @@ func (g *GrpcGet) ListServices(ctx context.Context) error {
 	return nil
 }
 
+// List a single service and call ServiceOutput.OutputService
 func (g *GrpcGet) ListService(ctx context.Context, service string) error {
 	if g.opts.outputServiceList == nil {
 		return errors.New("Must configure OutputService to run this method")
@@ -108,6 +117,7 @@ func (g *GrpcGet) ListService(ctx context.Context, service string) error {
 	return nil
 }
 
+// Get a symbol and call DescribeOutput.OutputDescribe
 func (g *GrpcGet) Describe(ctx context.Context, symbol string) error {
 	if g.opts.outputDescribe == nil {
 		return errors.New("Must configure OutputDescribe to run this method")
@@ -136,8 +146,10 @@ func (g *GrpcGet) Describe(ctx context.Context, symbol string) error {
 	return nil
 }
 
+// Invoke option
 type InvokeOption func(*invokeOptions)
 
+// Invoke the method and call InvokeOutput.OutputInvoke
 func (g *GrpcGet) Invoke(ctx context.Context, method string, opts ...InvokeOption) error {
 	if g.opts.outputInvoke == nil {
 		return errors.New("Must configure OutputInvoke to run this method")
@@ -185,11 +197,13 @@ func (g *GrpcGet) Invoke(ctx context.Context, method string, opts ...InvokeOptio
 	// call
 	callctx := context.Background()
 
+	// create grpc stub
 	stub := grpcdynamic.NewStub(conn)
 
 	var respHeaders metadata.MD
 	var respTrailers metadata.MD
 
+	// invoke
 	resp, err := stub.InvokeRpc(callctx, md, req, grpc.Trailer(&respTrailers), grpc.Header(&respHeaders))
 	if err != nil {
 		return err
