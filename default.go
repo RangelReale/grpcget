@@ -244,54 +244,67 @@ func (d *DefaultInvokeOutput) OutputInvoke(dmh *DynMsgHelper, value proto.Messag
 		return d.DumpMessage(dmh, 0, rd)
 	}
 
-	return nil
+	return fmt.Errorf("Unknown respose, cannot output")
 }
 
 func (d *DefaultInvokeOutput) DumpMessage(dmh *DynMsgHelper, level int, msg *dynamic.Message) error {
 	levelStr := strings.Repeat("\t", level)
 
 	for _, fld := range msg.GetKnownFields() {
-		tn := "?"
-		if fld.AsFieldDescriptorProto().TypeName != nil {
-			tn = *fld.AsFieldDescriptorProto().TypeName
-		}
-
-		fmt.Printf("%s* Name: %s -- Type: %s [%s]\n", levelStr, fld.GetName(), fld.GetType().String(), tn)
-
 		if msg.HasField(fld) {
-			if msg.GetField(fld) == nil {
-				fmt.Printf("%s** Value is nil\n", levelStr)
+			var value string
+
+			// check if has getter plugin
+			has_getter, getter_value, err := dmh.GetFieldValue(msg, fld)
+			if err != nil {
+				return err
+			}
+			if has_getter {
+				value = getter_value
 			} else {
-				// check if has getter plugin
-				has_getter, getter_value, err := dmh.GetFieldValue(msg, fld)
-				if err != nil {
-					return err
+				switch fld.GetType() {
+				case descriptor.FieldDescriptorProto_TYPE_STRING:
+					value = msg.GetField(fld).(string)
+				case descriptor.FieldDescriptorProto_TYPE_MESSAGE:
+					value = ""
+				default:
+					value = "Unknown"
 				}
-				if has_getter {
-					fmt.Printf("%s** Value: %s\n", levelStr, getter_value)
-				} else {
-					switch fld.GetType() {
-					case descriptor.FieldDescriptorProto_TYPE_MESSAGE:
-						if fld.IsRepeated() {
-							for ridx := 0; ridx < msg.FieldLength(fld); ridx++ {
-								err := d.DumpMessage(dmh, level+1, msg.GetRepeatedField(fld, ridx).(*dynamic.Message))
-								if err != nil {
-									return err
-								}
-							}
-						} else {
-							err := d.DumpMessage(dmh, level+1, msg.GetField(fld).(*dynamic.Message))
+			}
+
+			fmt.Fprintf(d.Out, "%s%s: %s\n", levelStr, fld.GetName(), value)
+
+			if !has_getter {
+				// Dump sub messages
+				switch fld.GetType() {
+				case descriptor.FieldDescriptorProto_TYPE_MESSAGE:
+					if fld.IsMap() {
+						// map fields have value of map[interface{}]interface{}
+						f_map := msg.GetField(fld).(map[interface{}]interface{})
+
+						for ridx, ritem := range f_map {
+							fmt.Fprintf(d.Out, "%s\t- %v\n", levelStr, ridx)
+							err := d.DumpMessage(dmh, level+1, ritem.(*dynamic.Message))
 							if err != nil {
 								return err
 							}
 						}
-					case descriptor.FieldDescriptorProto_TYPE_STRING:
-						fmt.Printf("%s** Value: %s\n", levelStr, msg.GetField(fld).(string))
+					} else if fld.IsRepeated() {
+						for ridx := 0; ridx < msg.FieldLength(fld); ridx++ {
+							fmt.Fprintf(d.Out, "%s\t-\n", levelStr)
+							err := d.DumpMessage(dmh, level+1, msg.GetRepeatedField(fld, ridx).(*dynamic.Message))
+							if err != nil {
+								return err
+							}
+						}
+					} else {
+						err := d.DumpMessage(dmh, level+1, msg.GetField(fld).(*dynamic.Message))
+						if err != nil {
+							return err
+						}
 					}
 				}
 			}
-		} else {
-			fmt.Printf("%s** Value not sent\n", levelStr)
 		}
 	}
 
