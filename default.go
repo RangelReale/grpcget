@@ -307,35 +307,42 @@ func (d *DefaultInvokeOutput) DumpMessage(dmh *DynMsgHelper, level int, msg *dyn
 			}
 		}
 
-		fmt.Fprintf(d.Out, "%s%s: %s\n", levelStr, fld.GetName(), value)
+		is_print := true
+		if fld.GetType() == descriptor.FieldDescriptorProto_TYPE_MESSAGE && !msg.HasField(fld) {
+			is_print = false
+		}
 
-		if !has_getter {
-			// Dump sub messages
-			switch fld.GetType() {
-			case descriptor.FieldDescriptorProto_TYPE_MESSAGE:
-				if fld.IsMap() {
-					// map fields have value of map[interface{}]interface{}
-					f_map := msg.GetField(fld).(map[interface{}]interface{})
+		if is_print {
+			fmt.Fprintf(d.Out, "%s%s: %s\n", levelStr, fld.GetName(), value)
 
-					for ridx, ritem := range f_map {
-						fmt.Fprintf(d.Out, "%s\t- %v\n", levelStr, ridx)
-						err := d.DumpMessage(dmh, level+1, ritem.(*dynamic.Message))
+			if !has_getter {
+				// Dump sub messages
+				switch fld.GetType() {
+				case descriptor.FieldDescriptorProto_TYPE_MESSAGE:
+					if fld.IsMap() {
+						// map fields have value of map[interface{}]interface{}
+						f_map := msg.GetField(fld).(map[interface{}]interface{})
+
+						for ridx, ritem := range f_map {
+							fmt.Fprintf(d.Out, "%s\t- %v\n", levelStr, ridx)
+							err := d.DumpMessage(dmh, level+1, ritem.(*dynamic.Message))
+							if err != nil {
+								return err
+							}
+						}
+					} else if fld.IsRepeated() {
+						for ridx := 0; ridx < msg.FieldLength(fld); ridx++ {
+							fmt.Fprintf(d.Out, "%s\t-\n", levelStr)
+							err := d.DumpMessage(dmh, level+1, msg.GetRepeatedField(fld, ridx).(*dynamic.Message))
+							if err != nil {
+								return err
+							}
+						}
+					} else {
+						err := d.DumpMessage(dmh, level+1, msg.GetField(fld).(*dynamic.Message))
 						if err != nil {
 							return err
 						}
-					}
-				} else if fld.IsRepeated() {
-					for ridx := 0; ridx < msg.FieldLength(fld); ridx++ {
-						fmt.Fprintf(d.Out, "%s\t-\n", levelStr)
-						err := d.DumpMessage(dmh, level+1, msg.GetRepeatedField(fld, ridx).(*dynamic.Message))
-						if err != nil {
-							return err
-						}
-					}
-				} else {
-					err := d.DumpMessage(dmh, level+1, msg.GetField(fld).(*dynamic.Message))
-					if err != nil {
-						return err
 					}
 				}
 			}
