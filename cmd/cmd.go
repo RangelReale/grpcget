@@ -142,7 +142,7 @@ func (c *Cmd) getGrpcGet(ctx *cli.Context, target string) (*grpcget.GrpcGet, con
 	}
 
 	if len(c.Metatada) > 0 {
-		md = metadata.Join(md, c.Metatada)
+		md = metadata.Join(c.Metatada, md)
 	}
 
 	if md != nil {
