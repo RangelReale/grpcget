@@ -3,7 +3,9 @@ package grpcget
 import (
 	"context"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/jhump/protoreflect/desc"
+	"github.com/jhump/protoreflect/dynamic"
 	"google.golang.org/grpc"
 )
 
@@ -27,4 +29,12 @@ type ServiceOutput interface {
 
 type DescribeOutput interface {
 	OutputDescribe(descriptor desc.Descriptor) error
+}
+
+type InvokeParamSetter interface {
+	SetInvokeParam(req *dynamic.Message) error
+}
+
+type InvokeOutput interface {
+	OutputInvoke(value proto.Message) error
 }

@@ -7,8 +7,12 @@ import (
 	"io"
 	"os"
 
+	"github.com/jhump/protoreflect/desc"
+	"github.com/jhump/protoreflect/dynamic"
+	"github.com/jhump/protoreflect/dynamic/grpcdynamic"
 	"github.com/jhump/protoreflect/grpcreflect"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 )
 
@@ -49,13 +53,13 @@ func (g *GrpcGet) checkConnection(ctx context.Context) (*grpc.ClientConn, error)
 	return g.opts.connectionSupplier.GetConnection(ctx)
 }
 
-func (g *GrpcGet) checkRefClient(ctx context.Context) (*grpcreflect.Client, error) {
+func (g *GrpcGet) checkRefClient(ctx context.Context) (*grpcreflect.Client, *grpc.ClientConn, error) {
 	conn, err := g.checkConnection(ctx)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return grpcreflect.NewClient(ctx, grpc_reflection_v1alpha.NewServerReflectionClient(conn)), nil
+	return grpcreflect.NewClient(ctx, grpc_reflection_v1alpha.NewServerReflectionClient(conn)), conn, nil
 }
 
 func (g *GrpcGet) ListServices() error {
@@ -65,7 +69,7 @@ func (g *GrpcGet) ListServices() error {
 
 	ctx := context.Background()
 
-	refClient, err := g.checkRefClient(ctx)
+	refClient, _, err := g.checkRefClient(ctx)
 	if err != nil {
 		return err
 	}
@@ -90,7 +94,7 @@ func (g *GrpcGet) ListService(service string) error {
 
 	ctx := context.Background()
 
-	refClient, err := g.checkRefClient(ctx)
+	refClient, _, err := g.checkRefClient(ctx)
 	if err != nil {
 		return err
 	}
@@ -115,7 +119,7 @@ func (g *GrpcGet) Describe(symbol string) error {
 
 	ctx := context.Background()
 
-	refClient, err := g.checkRefClient(ctx)
+	refClient, _, err := g.checkRefClient(ctx)
 	if err != nil {
 		return err
 	}
@@ -138,12 +142,81 @@ func (g *GrpcGet) Describe(symbol string) error {
 	return nil
 }
 
+type InvokeOption func(*invokeOptions)
+
+func (g *GrpcGet) Invoke(method string, opts ...InvokeOption) error {
+	if g.opts.outputInvoke == nil {
+		return errors.New("Must configure OutputInvoke to run this method")
+	}
+
+	ctx := context.Background()
+
+	refClient, conn, err := g.checkRefClient(ctx)
+	if err != nil {
+		return err
+	}
+
+	file, err := refClient.FileContainingSymbol(method)
+	if err != nil {
+		return err
+	}
+
+	d := file.FindSymbol(method)
+	if d == nil {
+		return fmt.Errorf("Method %s not found", method)
+	}
+
+	md, ok := d.(*desc.MethodDescriptor)
+	if !ok {
+		return fmt.Errorf("Symbol %s is not a method", method)
+	}
+
+	var iopts invokeOptions
+	for _, o := range opts {
+		o(&iopts)
+	}
+
+	// create dynamic message
+	req := dynamic.NewMessage(md.GetInputType())
+
+	// set input parameters
+	for _, setter := range iopts.paramSetters {
+		err = setter.SetInvokeParam(req)
+		if err != nil {
+			return err
+		}
+	}
+
+	// call
+	callctx := context.Background()
+
+	stub := grpcdynamic.NewStub(conn)
+
+	var respHeaders metadata.MD
+	var respTrailers metadata.MD
+
+	resp, err := stub.InvokeRpc(callctx, md, req, grpc.Trailer(&respTrailers), grpc.Header(&respHeaders))
+	if err != nil {
+		return err
+	}
+
+	// output
+	err = g.opts.outputInvoke.OutputInvoke(resp)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Get options
 type getOptions struct {
 	connectionSupplier ConnectionSupplier
 
 	outputServiceList ServiceListOutput
 	outputService     ServiceOutput
 	outputDescribe    DescribeOutput
+	outputInvoke      InvokeOutput
 }
 
 func WithDefaultOutputs(w io.Writer) GetOption {
@@ -151,6 +224,7 @@ func WithDefaultOutputs(w io.Writer) GetOption {
 		o.outputServiceList = NewDefaultServiceListOutput(w)
 		o.outputService = NewDefaultServiceOutput(w)
 		o.outputDescribe = NewDefaultDescribeOutput(w)
+		o.outputInvoke = NewDefaultInvokeOutput(w)
 	}
 }
 
@@ -188,4 +262,15 @@ func WithOutputDescribe(output DescribeOutput) GetOption {
 	return func(o *getOptions) {
 		o.outputDescribe = output
 	}
+}
+
+func WithOutputInvoke(output InvokeOutput) GetOption {
+	return func(o *getOptions) {
+		o.outputInvoke = output
+	}
+}
+
+// Invoke options
+type invokeOptions struct {
+	paramSetters []InvokeParamSetter
 }
