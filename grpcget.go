@@ -39,10 +39,11 @@ func NewGrpcGet_Default(supplier ConnectionSupplier, opts ...GetOption) *GrpcGet
 	return NewGrpcGet(nopts...)
 }
 
-func (g *GrpcGet) SetOpts(opts ...GetOption) {
+func (g *GrpcGet) SetOpts(opts ...GetOption) *GrpcGet {
 	for _, opt := range opts {
 		opt(&g.opts)
 	}
+	return g
 }
 
 func (g *GrpcGet) checkConnection(ctx context.Context) (*grpc.ClientConn, error) {
