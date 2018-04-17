@@ -59,10 +59,7 @@ func NewCmd() *Cmd {
 
 	ret.App.Commands = []cli.Command{
 		{
-			Name: "list",
-			Flags: []cli.Flag{
-				cli.StringFlag{Name: "service"},
-			},
+			Name:   "list",
 			Action: ret.CmdList,
 		},
 		{
@@ -140,14 +137,19 @@ func (c *Cmd) CmdList(ctx *cli.Context) error {
 		return errors.New("First argument must be hostname:port")
 	}
 
+	service := ""
+	if ctx.NArg() > 1 {
+		service = ctx.Args().Get(1)
+	}
+
 	gget, callctx, cancel, err := c.getGrpcGet(ctx, ctx.Args().Get(0))
 	if err != nil {
 		return err
 	}
 	defer cancel()
 
-	if ctx.String("service") != "" {
-		err := gget.ListService(callctx, ctx.String("service"))
+	if service != "" {
+		err := gget.ListService(callctx, service)
 		if err != nil {
 			return err
 		}
