@@ -1,5 +1,7 @@
 # grpcget
 
+[![GoDoc](https://godoc.org/github.com/RangelReale/grpcget?status.svg)](http://godoc.org/github.com/RangelReale/grpcget)
+
 grpcget is a command-line client for gRPC servers with reflection enabled.
 
 With this tool you can query the server for services and symbols, and invoke methods with parameters.
