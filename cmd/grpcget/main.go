@@ -10,7 +10,7 @@ import (
 func main() {
 	cmd := grpcget_cmd.NewCmd()
 
-	// you can set a cmd.GrpcGet if you want to customize the getter
+	// you can set a cmd.GrpcGet if you want to customize it
 
 	err := cmd.Run()
 	if err != nil {

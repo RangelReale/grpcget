@@ -28,10 +28,9 @@ func NewGrpcGet(opts ...GetOption) *GrpcGet {
 	return ret
 }
 
-func NewGrpcGet_Default(supplier ConnectionSupplier, opts ...GetOption) *GrpcGet {
+func NewGrpcGet_Default(opts ...GetOption) *GrpcGet {
 	nopts := []GetOption{
 		WithDefaultOutputs(os.Stdout),
-		WithConnectionSupplier(supplier),
 	}
 	for _, o := range opts {
 		nopts = append(nopts, o)
@@ -63,12 +62,10 @@ func (g *GrpcGet) checkRefClient(ctx context.Context) (*grpcreflect.Client, *grp
 	return grpcreflect.NewClient(ctx, grpc_reflection_v1alpha.NewServerReflectionClient(conn)), conn, nil
 }
 
-func (g *GrpcGet) ListServices() error {
+func (g *GrpcGet) ListServices(ctx context.Context) error {
 	if g.opts.outputServiceList == nil {
 		return errors.New("Must configure OutputServiceList to run this method")
 	}
-
-	ctx := context.Background()
 
 	refClient, _, err := g.checkRefClient(ctx)
 	if err != nil {
@@ -88,12 +85,10 @@ func (g *GrpcGet) ListServices() error {
 	return nil
 }
 
-func (g *GrpcGet) ListService(service string) error {
+func (g *GrpcGet) ListService(ctx context.Context, service string) error {
 	if g.opts.outputServiceList == nil {
 		return errors.New("Must configure OutputService to run this method")
 	}
-
-	ctx := context.Background()
 
 	refClient, _, err := g.checkRefClient(ctx)
 	if err != nil {
@@ -113,12 +108,10 @@ func (g *GrpcGet) ListService(service string) error {
 	return nil
 }
 
-func (g *GrpcGet) Describe(symbol string) error {
+func (g *GrpcGet) Describe(ctx context.Context, symbol string) error {
 	if g.opts.outputDescribe == nil {
 		return errors.New("Must configure OutputDescribe to run this method")
 	}
-
-	ctx := context.Background()
 
 	refClient, _, err := g.checkRefClient(ctx)
 	if err != nil {
@@ -145,12 +138,10 @@ func (g *GrpcGet) Describe(symbol string) error {
 
 type InvokeOption func(*invokeOptions)
 
-func (g *GrpcGet) Invoke(method string, opts ...InvokeOption) error {
+func (g *GrpcGet) Invoke(ctx context.Context, method string, opts ...InvokeOption) error {
 	if g.opts.outputInvoke == nil {
 		return errors.New("Must configure OutputInvoke to run this method")
 	}
-
-	ctx := context.Background()
 
 	refClient, conn, err := g.checkRefClient(ctx)
 	if err != nil {
