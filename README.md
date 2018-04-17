@@ -6,6 +6,9 @@ With this tool you can query the server for services and symbols, and invoke met
 
 The parameters for a method invocation are simple name=value parameters, and the name can have "." to set values in inner messages.
 
+The default implementation output is aimed to be user-friendly, not JSON or marchine parseable.
+But using output customizers it is easy to create a version that does output other formats. 
+
 ### example
 
 List all services:
