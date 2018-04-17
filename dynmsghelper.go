@@ -10,11 +10,18 @@ import (
 	"github.com/jhump/protoreflect/dynamic"
 )
 
+type DMHOption func(*dmhOptions)
+
 type DynMsgHelper struct {
+	opts dmhOptions
 }
 
-func NewDynMsgHelper() *DynMsgHelper {
-	return &DynMsgHelper{}
+func NewDynMsgHelper(opts ...DMHOption) *DynMsgHelper {
+	ret := &DynMsgHelper{}
+	for _, o := range opts {
+		o(&ret.opts)
+	}
+	return ret
 }
 
 func (h *DynMsgHelper) SetParamValue(msg *dynamic.Message, name, value string) error {
@@ -112,8 +119,60 @@ func (h *DynMsgHelper) SetFieldParamValue(msg *dynamic.Message, fld *desc.FieldD
 		}
 		msg.SetField(fld, ivalue)
 	default:
+		// try the setters
+		for _, setter := range h.opts.fieldSetters {
+			ok, err := setter.SetField(msg, fld, value)
+			if err != nil {
+				return err
+			}
+			if ok {
+				return nil
+			}
+		}
+
 		return fmt.Errorf("Cannot set value of type %s as string", fld.GetType().String())
 	}
 
 	return nil
+}
+
+func (h *DynMsgHelper) GetFieldValue(msg *dynamic.Message, fld *desc.FieldDescriptor) (ok bool, value string, err error) {
+	for _, fg := range h.opts.fieldValueGetters {
+		ok, value, err = fg.GetFieldValue(msg, fld)
+		if err != nil {
+			return false, "", err
+		}
+		if ok {
+			return true, value, nil
+		}
+	}
+	return false, "", nil
+}
+
+// Setter
+type DynMsgHelperFieldSetter interface {
+	SetField(msg *dynamic.Message, fld *desc.FieldDescriptor, value string) (ok bool, err error)
+}
+
+// Getter
+type DynMsgHelperFieldValueGetter interface {
+	GetFieldValue(msg *dynamic.Message, fld *desc.FieldDescriptor) (ok bool, value string, err error)
+}
+
+// DMH options
+type dmhOptions struct {
+	fieldSetters      []DynMsgHelperFieldSetter
+	fieldValueGetters []DynMsgHelperFieldValueGetter
+}
+
+func WithDMHFieldSetters(setters ...DynMsgHelperFieldSetter) DMHOption {
+	return func(o *dmhOptions) {
+		o.fieldSetters = append(o.fieldSetters, setters...)
+	}
+}
+
+func WithDMHFieldValueGetters(getters ...DynMsgHelperFieldValueGetter) DMHOption {
+	return func(o *dmhOptions) {
+		o.fieldValueGetters = append(o.fieldValueGetters, getters...)
+	}
 }

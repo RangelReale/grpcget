@@ -14,25 +14,23 @@ import (
 // name=value
 //
 type ParameterInvokeParamSetter struct {
-	DynMsgHelper *DynMsgHelper
-	Params       []string
+	Params []string
 }
 
 func NewParameterInvokeParamSetter(params ...string) *ParameterInvokeParamSetter {
 	return &ParameterInvokeParamSetter{
-		DynMsgHelper: NewDynMsgHelper(),
-		Params:       params,
+		Params: params,
 	}
 }
 
-func (i *ParameterInvokeParamSetter) SetInvokeParam(req *dynamic.Message) error {
+func (i *ParameterInvokeParamSetter) SetInvokeParam(dmh *DynMsgHelper, req *dynamic.Message) error {
 	for _, p := range i.Params {
 		argname, argvalue, err := i.parseArgumentParam(p)
 		if err != nil {
 			return err
 		}
 
-		err = i.DynMsgHelper.SetParamValue(req, argname, argvalue)
+		err = dmh.SetParamValue(req, argname, argvalue)
 		if err != nil {
 			return err
 		}
@@ -50,8 +48,8 @@ func (i *ParameterInvokeParamSetter) parseArgumentParam(argument string) (name s
 	return args[0], args[1], nil
 }
 
-func WithInvokeParams(param ...string) InvokeOption {
+func WithInvokeParams(params ...string) InvokeOption {
 	return func(o *invokeOptions) {
-		o.paramSetters = append(o.paramSetters, &ParameterInvokeParamSetter{Params: param})
+		o.paramSetters = append(o.paramSetters, NewParameterInvokeParamSetter(params...))
 	}
 }

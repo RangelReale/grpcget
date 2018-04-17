@@ -32,9 +32,9 @@ type DescribeOutput interface {
 }
 
 type InvokeParamSetter interface {
-	SetInvokeParam(req *dynamic.Message) error
+	SetInvokeParam(dmh *DynMsgHelper, req *dynamic.Message) error
 }
 
 type InvokeOutput interface {
-	OutputInvoke(value proto.Message) error
+	OutputInvoke(dmh *DynMsgHelper, value proto.Message) error
 }

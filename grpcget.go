@@ -179,9 +179,12 @@ func (g *GrpcGet) Invoke(method string, opts ...InvokeOption) error {
 	// create dynamic message
 	req := dynamic.NewMessage(md.GetInputType())
 
+	// create dyn msg helper
+	dmh := NewDynMsgHelper(g.opts.dmhOpts...)
+
 	// set input parameters
 	for _, setter := range iopts.paramSetters {
-		err = setter.SetInvokeParam(req)
+		err = setter.SetInvokeParam(dmh, req)
 		if err != nil {
 			return err
 		}
@@ -201,7 +204,7 @@ func (g *GrpcGet) Invoke(method string, opts ...InvokeOption) error {
 	}
 
 	// output
-	err = g.opts.outputInvoke.OutputInvoke(resp)
+	err = g.opts.outputInvoke.OutputInvoke(dmh, resp)
 	if err != nil {
 		return err
 	}
@@ -217,6 +220,8 @@ type getOptions struct {
 	outputService     ServiceOutput
 	outputDescribe    DescribeOutput
 	outputInvoke      InvokeOutput
+
+	dmhOpts []DMHOption
 }
 
 func WithDefaultOutputs(w io.Writer) GetOption {
@@ -267,6 +272,12 @@ func WithOutputDescribe(output DescribeOutput) GetOption {
 func WithOutputInvoke(output InvokeOutput) GetOption {
 	return func(o *getOptions) {
 		o.outputInvoke = output
+	}
+}
+
+func WithDMHOpts(opts ...DMHOption) GetOption {
+	return func(o *getOptions) {
+		o.dmhOpts = append(o.dmhOpts, opts...)
 	}
 }
 

@@ -239,15 +239,15 @@ func NewDefaultInvokeOutput(out io.Writer) *DefaultInvokeOutput {
 	}
 }
 
-func (d *DefaultInvokeOutput) OutputInvoke(value proto.Message) error {
+func (d *DefaultInvokeOutput) OutputInvoke(dmh *DynMsgHelper, value proto.Message) error {
 	if rd, isrd := value.(*dynamic.Message); isrd {
-		return d.DumpMessage(0, rd)
+		return d.DumpMessage(dmh, 0, rd)
 	}
 
 	return nil
 }
 
-func (d *DefaultInvokeOutput) DumpMessage(level int, msg *dynamic.Message) error {
+func (d *DefaultInvokeOutput) DumpMessage(dmh *DynMsgHelper, level int, msg *dynamic.Message) error {
 	levelStr := strings.Repeat("\t", level)
 
 	for _, fld := range msg.GetKnownFields() {
@@ -262,23 +262,32 @@ func (d *DefaultInvokeOutput) DumpMessage(level int, msg *dynamic.Message) error
 			if msg.GetField(fld) == nil {
 				fmt.Printf("%s** Value is nil\n", levelStr)
 			} else {
-				switch fld.GetType() {
-				case descriptor.FieldDescriptorProto_TYPE_MESSAGE:
-					if fld.IsRepeated() {
-						for ridx := 0; ridx < msg.FieldLength(fld); ridx++ {
-							err := d.DumpMessage(level+1, msg.GetRepeatedField(fld, ridx).(*dynamic.Message))
+				// check if has getter plugin
+				has_getter, getter_value, err := dmh.GetFieldValue(msg, fld)
+				if err != nil {
+					return err
+				}
+				if has_getter {
+					fmt.Printf("%s** Value: %s\n", levelStr, getter_value)
+				} else {
+					switch fld.GetType() {
+					case descriptor.FieldDescriptorProto_TYPE_MESSAGE:
+						if fld.IsRepeated() {
+							for ridx := 0; ridx < msg.FieldLength(fld); ridx++ {
+								err := d.DumpMessage(dmh, level+1, msg.GetRepeatedField(fld, ridx).(*dynamic.Message))
+								if err != nil {
+									return err
+								}
+							}
+						} else {
+							err := d.DumpMessage(dmh, level+1, msg.GetField(fld).(*dynamic.Message))
 							if err != nil {
 								return err
 							}
 						}
-					} else {
-						err := d.DumpMessage(level+1, msg.GetField(fld).(*dynamic.Message))
-						if err != nil {
-							return err
-						}
+					case descriptor.FieldDescriptorProto_TYPE_STRING:
+						fmt.Printf("%s** Value: %s\n", levelStr, msg.GetField(fld).(string))
 					}
-				case descriptor.FieldDescriptorProto_TYPE_STRING:
-					fmt.Printf("%s** Value: %s\n", levelStr, msg.GetField(fld).(string))
 				}
 			}
 		} else {
