@@ -265,6 +265,34 @@ func (d *DefaultInvokeOutput) DumpMessage(dmh *DynMsgHelper, level int, msg *dyn
 				switch fld.GetType() {
 				case descriptor.FieldDescriptorProto_TYPE_STRING:
 					value = msg.GetField(fld).(string)
+					// INT32
+				case descriptor.FieldDescriptorProto_TYPE_SFIXED32,
+					descriptor.FieldDescriptorProto_TYPE_INT32,
+					descriptor.FieldDescriptorProto_TYPE_SINT32,
+					descriptor.FieldDescriptorProto_TYPE_ENUM:
+					value = fmt.Sprintf("%d", msg.GetField(fld).(int32))
+					// INT64
+				case descriptor.FieldDescriptorProto_TYPE_SFIXED64,
+					descriptor.FieldDescriptorProto_TYPE_INT64,
+					descriptor.FieldDescriptorProto_TYPE_SINT64:
+					value = fmt.Sprintf("%d", msg.GetField(fld).(int64))
+					// UINT32
+				case descriptor.FieldDescriptorProto_TYPE_FIXED32,
+					descriptor.FieldDescriptorProto_TYPE_UINT32:
+					value = fmt.Sprintf("%d", msg.GetField(fld).(uint32))
+					// UINT64
+				case descriptor.FieldDescriptorProto_TYPE_FIXED64,
+					descriptor.FieldDescriptorProto_TYPE_UINT64:
+					value = fmt.Sprintf("%d", msg.GetField(fld).(uint64))
+					// FLOAT32
+				case descriptor.FieldDescriptorProto_TYPE_FLOAT:
+					value = fmt.Sprintf("%f", msg.GetField(fld).(float32))
+					// FLOAT64
+				case descriptor.FieldDescriptorProto_TYPE_DOUBLE:
+					value = fmt.Sprintf("%f", msg.GetField(fld).(float64))
+					// BOOL
+				case descriptor.FieldDescriptorProto_TYPE_BOOL:
+					value = fmt.Sprintf("%v", msg.GetField(fld).(bool))
 				case descriptor.FieldDescriptorProto_TYPE_MESSAGE:
 					value = ""
 				default:
