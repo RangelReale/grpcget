@@ -91,7 +91,7 @@ func NewDefaultServiceOutput(out io.Writer) *DefaultServiceOutput {
 
 func (d *DefaultServiceOutput) OutputService(service *desc.ServiceDescriptor) error {
 	for _, mt := range service.GetMethods() {
-		_, err := fmt.Fprintf(d.Out, "%s.%s(%s) returns (%s)\n", service.GetFullyQualifiedName(), mt.GetName(), mt.GetInputType().GetFullyQualifiedName(), mt.GetOutputType().GetFullyQualifiedName())
+		_, err := fmt.Fprintf(d.Out, "\t%s(%s) returns (%s)\n", mt.GetName(), mt.GetInputType().GetFullyQualifiedName(), mt.GetOutputType().GetFullyQualifiedName())
 		if err != nil {
 			return err
 		}

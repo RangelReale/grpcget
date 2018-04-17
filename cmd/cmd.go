@@ -22,6 +22,7 @@ type Cmd struct {
 	App             *cli.App
 	GrpcGet         *grpcget.GrpcGet
 	GrpcDialOptions []grpc.DialOption
+	Metatada        metadata.MD
 }
 
 func NewCmd() *Cmd {
@@ -39,7 +40,6 @@ func NewCmd() *Cmd {
 		cli.StringFlag{Name: "servername", Usage: "Override servername when validating TLS certificate."},
 		cli.Float64Flag{Name: "max-time", Usage: "The maximum total time the operation can take. This is useful for preventing batch jobs that use grpcurl from hanging due to slow or bad network links or due to incorrect stream method usage."},
 		cli.Float64Flag{Name: "keepalive-time", Usage: "If present, the maximum idle time in seconds, after which a keepalive probe is sent. If the connection remains idle and no keepalive response is received for this same period then the connection is closed and the operation fails."},
-		cli.StringSliceFlag{Name: "header", Usage: "Headers to send in name=value format."},
 	}
 
 	ret.App.Before = func(ctx *cli.Context) error {
@@ -61,15 +61,24 @@ func NewCmd() *Cmd {
 
 	ret.App.Commands = []cli.Command{
 		{
-			Name:   "list",
+			Name: "list",
+			Flags: []cli.Flag{
+				cli.StringSliceFlag{Name: "header", Usage: "Headers to send in name=value format."},
+			},
 			Action: ret.CmdList,
 		},
 		{
-			Name:   "desc",
+			Name: "desc, describe",
+			Flags: []cli.Flag{
+				cli.StringSliceFlag{Name: "header", Usage: "Headers to send in name=value format."},
+			},
 			Action: ret.CmdDescribe,
 		},
 		{
-			Name:   "invoke",
+			Name: "invoke",
+			Flags: []cli.Flag{
+				cli.StringSliceFlag{Name: "header", Usage: "Headers to send in name=value format."},
+			},
 			Action: ret.CmdInvoke,
 		},
 	}
@@ -124,9 +133,20 @@ func (c *Cmd) getGrpcGet(ctx *cli.Context, target string) (*grpcget.GrpcGet, con
 		gdopts = append(gdopts, grpc.WithInsecure())
 	}
 
-	// headers
-	if len(ctx.GlobalStringSlice("header")) > 0 {
-		callctx = metadata.NewOutgoingContext(callctx, grpcget.MetadataFromHeaders(ctx.GlobalStringSlice("header")))
+	// metadata
+	var md metadata.MD
+
+	if len(ctx.StringSlice("header")) > 0 {
+		header_md := grpcget.MetadataFromHeaders(ctx.StringSlice("header"))
+		md = metadata.Join(md, header_md)
+	}
+
+	if len(c.Metatada) > 0 {
+		md = metadata.Join(md, c.Metatada)
+	}
+
+	if md != nil {
+		callctx = metadata.NewOutgoingContext(callctx, md)
 	}
 
 	// add extra dial options

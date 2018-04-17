@@ -194,9 +194,6 @@ func (g *GrpcGet) Invoke(ctx context.Context, method string, opts ...InvokeOptio
 		}
 	}
 
-	// call
-	callctx := context.Background()
-
 	// create grpc stub
 	stub := grpcdynamic.NewStub(conn)
 
@@ -204,7 +201,7 @@ func (g *GrpcGet) Invoke(ctx context.Context, method string, opts ...InvokeOptio
 	var respTrailers metadata.MD
 
 	// invoke
-	resp, err := stub.InvokeRpc(callctx, md, req, grpc.Trailer(&respTrailers), grpc.Header(&respHeaders))
+	resp, err := stub.InvokeRpc(ctx, md, req, grpc.Trailer(&respTrailers), grpc.Header(&respHeaders))
 	if err != nil {
 		return err
 	}
