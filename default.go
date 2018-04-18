@@ -125,6 +125,10 @@ func (d *DefaultDescribeOutput) OutputDescribe(descriptor desc.Descriptor) error
 		}
 	case *desc.MethodDescriptor:
 		fmt.Fprintf(d.Out, "Service RPC: %s\n", sd.GetFullyQualifiedName())
+		err = d.DumpMethod(1, sd, true)
+		if err != nil {
+			return err
+		}
 	case *desc.EnumDescriptor:
 		fmt.Fprintf(d.Out, "Enum: %s\n", sd.GetFullyQualifiedName())
 		err = d.DumpEnum(1, sd)
@@ -173,7 +177,7 @@ func (d *DefaultDescribeOutput) DumpMessage(level int, msg *desc.MessageDescript
 
 func (d *DefaultDescribeOutput) DumpService(level int, svc *desc.ServiceDescriptor) error {
 	for _, mt := range svc.GetMethods() {
-		err := d.DumpMethod(level+1, mt)
+		err := d.DumpMethod(level+1, mt, false)
 		if err != nil {
 			return err
 		}
@@ -182,12 +186,34 @@ func (d *DefaultDescribeOutput) DumpService(level int, svc *desc.ServiceDescript
 	return nil
 }
 
-func (d *DefaultDescribeOutput) DumpMethod(level int, mtd *desc.MethodDescriptor) error {
+func (d *DefaultDescribeOutput) DumpMethod(level int, mtd *desc.MethodDescriptor, complete bool) error {
 	levelStr := strings.Repeat("\t", level)
 
-	_, err := fmt.Fprintf(d.Out, "%s%s(%s) returns (%s)\n", levelStr, mtd.GetName(), mtd.GetInputType().GetFullyQualifiedName(), mtd.GetOutputType().GetFullyQualifiedName())
+	_, err := fmt.Fprintf(d.Out, "%s%s(%s) returns (%s)\n", levelStr, mtd.GetName(), mtd.GetInputType().GetName(), mtd.GetOutputType().GetName())
 	if err != nil {
 		return err
+	}
+
+	if complete {
+		_, err = fmt.Fprintf(d.Out, "%s\tRequest: %s\n", levelStr, mtd.GetInputType().GetFullyQualifiedName())
+		if err != nil {
+			return err
+		}
+
+		err = d.DumpMessage(level+2, mtd.GetInputType())
+		if err != nil {
+			return err
+		}
+
+		_, err = fmt.Fprintf(d.Out, "%s\tResponse: %s\n", levelStr, mtd.GetInputType().GetFullyQualifiedName())
+		if err != nil {
+			return err
+		}
+
+		err = d.DumpMessage(level+2, mtd.GetOutputType())
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil

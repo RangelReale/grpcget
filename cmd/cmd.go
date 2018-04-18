@@ -50,7 +50,7 @@ func NewCmd() *Cmd {
 			Action: ret.CmdList,
 		},
 		{
-			Name: "desc",
+			Name: "describe",
 			Flags: []cli.Flag{
 				cli.StringSliceFlag{Name: "header", Usage: "Headers to send in name=value format."},
 			},
@@ -60,6 +60,7 @@ func NewCmd() *Cmd {
 			Name: "invoke",
 			Flags: []cli.Flag{
 				cli.StringSliceFlag{Name: "header", Usage: "Headers to send in name=value format."},
+				cli.BoolFlag{Name: "describe", Usage: "Describe the method instead of invoking the function"},
 			},
 			Action: ret.CmdInvoke,
 		},
@@ -236,12 +237,19 @@ func (c *Cmd) CmdInvoke(ctx *cli.Context) error {
 	}
 	defer cancel()
 
+	method := c.Override.OverrideInvokeMethodName(ctx.Args().Get(1))
+
+	if ctx.IsSet("describe") {
+		// describe instead of invoke
+		return gget.Describe(callctx, method)
+	}
+
 	var params []string
 	for pi := 2; pi < ctx.NArg(); pi++ {
 		params = append(params, ctx.Args().Get(pi))
 	}
 
-	return gget.Invoke(callctx, c.Override.OverrideInvokeMethodName(ctx.Args().Get(1)), grpcget.WithInvokeParams(params...))
+	return gget.Invoke(callctx, method, grpcget.WithInvokeParams(params...))
 }
 
 //

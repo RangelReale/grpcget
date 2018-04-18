@@ -23,8 +23,8 @@ List service methods:
 
 Describe symbol:
 
-    grpcget -plaintext desc localhost:11300 helloworld.Greeter 
-    grpcget -plaintext desc localhost:11300 helloworld.HelloRequest 
+    grpcget -plaintext describe localhost:11300 helloworld.Greeter 
+    grpcget -plaintext describe localhost:11300 helloworld.HelloRequest 
 
 Invoke:
 
