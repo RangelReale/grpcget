@@ -30,6 +30,32 @@ Invoke:
 
     grpcget -plaintext invoke localhost:11300 helloworld.Greeter name="MyName"
     
+### Invoke parameters
+
+Given this protobuf message:
+
+```proto
+message SMData {
+    string data = 1;
+    string data2 = 2;
+    map<string, SMData> data_list = 3;
+    repeated SMData data_repeat = 4;
+}
+```
+    
+To set the various fields, these are sample invoke parameters:
+
+    data="Value" 
+    data_list.item1.data="Value inside the map with key 'item'" 
+    data_list.item1.data2="Value inside the same map as the previous param" 
+    data_repeat.0.data="Value inside the repeat with index '0'"
+    data_repeat.0.data2="Value into the same index '0' as the previous"
+    data_repeat.1.data2="Value inside the repeat with index '1'"
+    
+Notes:
+* For repeated items, the index must be set in sequential order, starting with 0.
+* Subsequent uses of the same map/repeated index sets the value on the same existing item.
+    
 ### library
 
 grpcget is also a customizable library that you can use in your projects.
