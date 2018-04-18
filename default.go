@@ -339,7 +339,14 @@ func (d *DefaultInvokeOutput) DumpMessage(dmh *DynMsgHelper, level int, msg *dyn
 		}
 
 		if is_print {
-			fmt.Fprintf(d.Out, "%s%s: %s\n", levelStr, fld.GetName(), value)
+			var opt string
+			if fld.IsMap() {
+				opt = "[map]"
+			} else if fld.IsRepeated() {
+				opt = "[]"
+			}
+
+			fmt.Fprintf(d.Out, "%s%s%s: %s\n", levelStr, fld.GetName(), opt, value)
 
 			if !has_getter {
 				// Dump sub messages
