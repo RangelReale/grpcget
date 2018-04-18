@@ -2,11 +2,8 @@ package grpcget_cmd
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"time"
 
@@ -23,11 +20,13 @@ type Cmd struct {
 	GrpcGet         *grpcget.GrpcGet
 	GrpcDialOptions []grpc.DialOption
 	Metatada        metadata.MD
+	Override        CmdOverride
 }
 
 func NewCmd() *Cmd {
 	ret := &Cmd{
-		App: cli.NewApp(),
+		App:      cli.NewApp(),
+		Override: &defaultOverride{},
 	}
 
 	ret.App.Flags = []cli.Flag{
@@ -40,23 +39,6 @@ func NewCmd() *Cmd {
 		cli.StringFlag{Name: "servername", Usage: "Override servername when validating TLS certificate."},
 		cli.Float64Flag{Name: "max-time", Usage: "The maximum total time the operation can take. This is useful for preventing batch jobs that use grpcurl from hanging due to slow or bad network links or due to incorrect stream method usage."},
 		cli.Float64Flag{Name: "keepalive-time", Usage: "If present, the maximum idle time in seconds, after which a keepalive probe is sent. If the connection remains idle and no keepalive response is received for this same period then the connection is closed and the operation fails."},
-	}
-
-	ret.App.Before = func(ctx *cli.Context) error {
-		// Do extra validation on arguments and figure out what user asked us to do.
-		if ctx.GlobalIsSet("plaintext") && ctx.GlobalIsSet("insecure") {
-			return errors.New("The -plaintext and -insecure arguments are mutually exclusive.")
-		}
-		if ctx.GlobalIsSet("plaintext") && ctx.GlobalString("cert") != "" {
-			return errors.New("The -plaintext and -cert arguments are mutually exclusive.")
-		}
-		if ctx.GlobalIsSet("plaintext") && ctx.GlobalString("key") != "" {
-			return errors.New("The -plaintext and -key arguments are mutually exclusive.")
-		}
-		if (ctx.GlobalString("key") == "") != (ctx.GlobalString("cert") == "") {
-			return errors.New("The -cert and -key arguments must be used together and both be present.")
-		}
-		return nil
 	}
 
 	ret.App.Commands = []cli.Command{
@@ -88,6 +70,23 @@ func NewCmd() *Cmd {
 
 func (c *Cmd) Run() error {
 	return c.App.Run(os.Args)
+}
+
+func (c *Cmd) InitialCheck(ctx *cli.Context) error {
+	// Do extra validation on arguments and figure out what user asked us to do.
+	if ctx.GlobalIsSet("plaintext") && ctx.GlobalIsSet("insecure") {
+		return errors.New("The -plaintext and -insecure arguments are mutually exclusive.")
+	}
+	if ctx.GlobalIsSet("plaintext") && ctx.GlobalString("cert") != "" {
+		return errors.New("The -plaintext and -cert arguments are mutually exclusive.")
+	}
+	if ctx.GlobalIsSet("plaintext") && ctx.GlobalString("key") != "" {
+		return errors.New("The -plaintext and -key arguments are mutually exclusive.")
+	}
+	if (ctx.GlobalString("key") == "") != (ctx.GlobalString("cert") == "") {
+		return errors.New("The -cert and -key arguments must be used together and both be present.")
+	}
+	return nil
 }
 
 func (c *Cmd) getGrpcGet(ctx *cli.Context, target string) (*grpcget.GrpcGet, context.Context, context.CancelFunc, error) {
@@ -153,13 +152,17 @@ func (c *Cmd) getGrpcGet(ctx *cli.Context, target string) (*grpcget.GrpcGet, con
 	gdopts = append(gdopts, c.GrpcDialOptions...)
 
 	// set grpcget options
-	gg.SetOpts(grpcget.WithDefaultConnection(target, gdopts...))
+	gg.SetOpts(grpcget.WithDefaultConnection(c.Override.OverrideTargetAddress(target), gdopts...))
 
 	return gg, callctx, cancel, nil
 }
 
 // LIST
 func (c *Cmd) CmdList(ctx *cli.Context) error {
+	if err := c.InitialCheck(ctx); err != nil {
+		return err
+	}
+
 	if ctx.NArg() < 1 {
 		return errors.New("First argument must be hostname:port")
 	}
@@ -176,7 +179,7 @@ func (c *Cmd) CmdList(ctx *cli.Context) error {
 	defer cancel()
 
 	if service != "" {
-		err := gget.ListService(callctx, service)
+		err := gget.ListService(callctx, c.Override.OverrideServiceName(service))
 		if err != nil {
 			return err
 		}
@@ -192,6 +195,10 @@ func (c *Cmd) CmdList(ctx *cli.Context) error {
 
 // DESCRIBE
 func (c *Cmd) CmdDescribe(ctx *cli.Context) error {
+	if err := c.InitialCheck(ctx); err != nil {
+		return err
+	}
+
 	if ctx.NArg() < 1 {
 		return errors.New("First argument must be hostname:port")
 	}
@@ -206,11 +213,15 @@ func (c *Cmd) CmdDescribe(ctx *cli.Context) error {
 	}
 	defer cancel()
 
-	return gget.Describe(callctx, ctx.Args().Get(1))
+	return gget.Describe(callctx, c.Override.OverrideDescribeSymbolName(ctx.Args().Get(1)))
 }
 
 // INVOKE
 func (c *Cmd) CmdInvoke(ctx *cli.Context) error {
+	if err := c.InitialCheck(ctx); err != nil {
+		return err
+	}
+
 	if ctx.NArg() < 1 {
 		return errors.New("First argument must be hostname:port")
 	}
@@ -230,42 +241,27 @@ func (c *Cmd) CmdInvoke(ctx *cli.Context) error {
 		params = append(params, ctx.Args().Get(pi))
 	}
 
-	return gget.Invoke(callctx, ctx.Args().Get(1), grpcget.WithInvokeParams(params...))
+	return gget.Invoke(callctx, c.Override.OverrideInvokeMethodName(ctx.Args().Get(1)), grpcget.WithInvokeParams(params...))
 }
 
-// ClientTransportCredentials builds transport credentials for a GRPC client using the
-// given properties. If cacertFile is blank, only standard trusted certs are used to
-// verify the server certs. If clientCertFile is blank, the client will not use a client
-// certificate. If clientCertFile is not blank then clientKeyFile must not be blank.
-func ClientTransportCredentials(insecureSkipVerify bool, cacertFile, clientCertFile, clientKeyFile string) (credentials.TransportCredentials, error) {
-	var tlsConf tls.Config
+//
+// Default override
+//
+type defaultOverride struct {
+}
 
-	if clientCertFile != "" {
-		// Load the client certificates from disk
-		certificate, err := tls.LoadX509KeyPair(clientCertFile, clientKeyFile)
-		if err != nil {
-			return nil, fmt.Errorf("could not load client key pair: %v", err)
-		}
-		tlsConf.Certificates = []tls.Certificate{certificate}
-	}
+func (o *defaultOverride) OverrideTargetAddress(target string) string {
+	return target
+}
 
-	if insecureSkipVerify {
-		tlsConf.InsecureSkipVerify = true
-	} else if cacertFile != "" {
-		// Create a certificate pool from the certificate authority
-		certPool := x509.NewCertPool()
-		ca, err := ioutil.ReadFile(cacertFile)
-		if err != nil {
-			return nil, fmt.Errorf("could not read ca certificate: %v", err)
-		}
+func (o *defaultOverride) OverrideServiceName(service string) string {
+	return service
+}
 
-		// Append the certificates from the CA
-		if ok := certPool.AppendCertsFromPEM(ca); !ok {
-			return nil, errors.New("failed to append ca certs")
-		}
+func (o *defaultOverride) OverrideDescribeSymbolName(symbol string) string {
+	return symbol
+}
 
-		tlsConf.RootCAs = certPool
-	}
-
-	return credentials.NewTLS(&tlsConf), nil
+func (o *defaultOverride) OverrideInvokeMethodName(method string) string {
+	return method
 }
