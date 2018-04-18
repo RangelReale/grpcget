@@ -61,6 +61,7 @@ Notes:
 grpcget is also a customizable library that you can use in your projects.
 
 It supports customizing setters and getters so you can define special handling for types that your application supports.
+See the "dmh" directory to learn more.
 
 For example, give an UUID value type:
 
