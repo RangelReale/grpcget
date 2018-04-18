@@ -1,6 +1,8 @@
 package grpcget
 
 import (
+	"fmt"
+
 	"github.com/jhump/protoreflect/dynamic"
 )
 
@@ -29,7 +31,7 @@ func (i *ParameterInvokeParamSetter) SetInvokeParam(dmh *DynMsgHelper, req *dyna
 
 		err = dmh.SetParamValue(req, argname, argvalue)
 		if err != nil {
-			return err
+			return fmt.Errorf("Error setting param '%s': %v", argname, err)
 		}
 	}
 
