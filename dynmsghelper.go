@@ -98,10 +98,12 @@ func (s *setParamSetter_Map) GetValue() (ok bool, val interface{}) {
 	if !s.msg.HasField(s.fld) {
 		return false, nil
 	}
-	if !s.msg.HasMapField(s.fld, s.key) {
+	v := s.msg.GetMapField(s.fld, s.key)
+	// nil values are not allowed in protobuf maps, so it can be used to check if the key exists
+	if v == nil {
 		return false, nil
 	}
-	return true, s.msg.GetMapField(s.fld, s.key)
+	return true, v
 }
 
 func (s *setParamSetter_Map) SetValue(val interface{}) error {
