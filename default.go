@@ -21,19 +21,33 @@ import (
 // ConnectionSupplier - Default
 //
 type DefaultConnectionSupplier struct {
+	Ctx    context.Context
 	Target string
 	Opts   []grpc.DialOption
 }
 
-func NewDefaultConnectionSupplier(target string, opts ...grpc.DialOption) *DefaultConnectionSupplier {
+func NewDefaultConnectionSupplier(ctx context.Context, target string, opts ...grpc.DialOption) *DefaultConnectionSupplier {
 	return &DefaultConnectionSupplier{
+		Ctx:    ctx,
 		Target: target,
 		Opts:   opts,
 	}
 }
 
 func (d *DefaultConnectionSupplier) GetConnection(ctx context.Context) (*grpc.ClientConn, error) {
-	return grpc.DialContext(ctx, d.Target, d.Opts...)
+	curctx := d.Ctx
+	if curctx == nil {
+		curctx = ctx
+	}
+
+	_, has_deadline := curctx.Deadline()
+	if has_deadline {
+		var cancel context.CancelFunc
+		curctx, cancel = context.WithCancel(curctx)
+		defer cancel()
+	}
+
+	return grpc.DialContext(curctx, d.Target, d.Opts...)
 }
 
 //

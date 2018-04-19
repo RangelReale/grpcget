@@ -90,7 +90,7 @@ func (c *Cmd) InitialCheck(ctx *cli.Context) error {
 	return nil
 }
 
-func (c *Cmd) getGrpcGet(ctx *cli.Context, target string) (*grpcget.GrpcGet, context.Context, context.CancelFunc, error) {
+func (c *Cmd) getGrpcGet(ctx *cli.Context, target string) (*grpcget.GrpcGet, context.Context, error) {
 	var gg = c.GrpcGet
 	if gg == nil {
 		gg = grpcget.NewGrpcGet(grpcget.WithDefaultOutputs(os.Stdout))
@@ -102,11 +102,13 @@ func (c *Cmd) getGrpcGet(ctx *cli.Context, target string) (*grpcget.GrpcGet, con
 		timeout := time.Duration(ctx.GlobalFloat64("max-time") * float64(time.Second))
 		callctx, _ = context.WithTimeout(callctx, timeout)
 	}
+
+	dialctx := callctx
 	dialTime := 10 * time.Second
 	if ctx.GlobalIsSet("connect-timeout") {
 		dialTime = time.Duration(ctx.GlobalFloat64("connect-timeout") * float64(time.Second))
 	}
-	callctx, cancel := context.WithTimeout(callctx, dialTime)
+	dialctx, _ = context.WithTimeout(dialctx, dialTime)
 
 	// dial options
 	var gdopts []grpc.DialOption
@@ -122,11 +124,11 @@ func (c *Cmd) getGrpcGet(ctx *cli.Context, target string) (*grpcget.GrpcGet, con
 		var err error
 		creds, err = ClientTransportCredentials(ctx.GlobalIsSet("insecure"), ctx.GlobalString("cacert"), ctx.GlobalString("cert"), ctx.GlobalString("key"))
 		if err != nil {
-			return nil, nil, nil, fmt.Errorf("Failed to configure transport credentials: %v", err)
+			return nil, nil, fmt.Errorf("Failed to configure transport credentials: %v", err)
 		}
 		if ctx.GlobalIsSet("servername") {
 			if err := creds.OverrideServerName(ctx.GlobalString("servername")); err != nil {
-				return nil, nil, nil, fmt.Errorf("Failed to override server name as %q: %v", ctx.GlobalString("serverName"), err)
+				return nil, nil, fmt.Errorf("Failed to override server name as %q: %v", ctx.GlobalString("serverName"), err)
 			}
 		}
 	} else {
@@ -153,9 +155,9 @@ func (c *Cmd) getGrpcGet(ctx *cli.Context, target string) (*grpcget.GrpcGet, con
 	gdopts = append(gdopts, c.GrpcDialOptions...)
 
 	// set grpcget options
-	gg.SetOpts(grpcget.WithDefaultConnection(c.Override.OverrideTargetAddress(target), gdopts...))
+	gg.SetOpts(grpcget.WithDefaultConnection(dialctx, c.Override.OverrideTargetAddress(target), gdopts...))
 
-	return gg, callctx, cancel, nil
+	return gg, callctx, nil
 }
 
 // LIST
@@ -173,11 +175,10 @@ func (c *Cmd) CmdList(ctx *cli.Context) error {
 		service = ctx.Args().Get(1)
 	}
 
-	gget, callctx, cancel, err := c.getGrpcGet(ctx, ctx.Args().Get(0))
+	gget, callctx, err := c.getGrpcGet(ctx, ctx.Args().Get(0))
 	if err != nil {
 		return err
 	}
-	defer cancel()
 
 	if service != "" {
 		err := gget.ListService(callctx, c.Override.OverrideServiceName(service))
@@ -208,11 +209,10 @@ func (c *Cmd) CmdDescribe(ctx *cli.Context) error {
 		return errors.New("Second argument must be type name")
 	}
 
-	gget, callctx, cancel, err := c.getGrpcGet(ctx, ctx.Args().Get(0))
+	gget, callctx, err := c.getGrpcGet(ctx, ctx.Args().Get(0))
 	if err != nil {
 		return err
 	}
-	defer cancel()
 
 	return gget.Describe(callctx, c.Override.OverrideDescribeSymbolName(ctx.Args().Get(1)))
 }
@@ -231,11 +231,10 @@ func (c *Cmd) CmdInvoke(ctx *cli.Context) error {
 		return errors.New("Second argument must be a method name")
 	}
 
-	gget, callctx, cancel, err := c.getGrpcGet(ctx, ctx.Args().Get(0))
+	gget, callctx, err := c.getGrpcGet(ctx, ctx.Args().Get(0))
 	if err != nil {
 		return err
 	}
-	defer cancel()
 
 	method := c.Override.OverrideInvokeMethodName(ctx.Args().Get(1))
 

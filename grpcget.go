@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/dynamic"
 	"github.com/jhump/protoreflect/dynamic/grpcdynamic"
@@ -75,10 +76,12 @@ func (g *GrpcGet) ListServices(ctx context.Context) error {
 		return errors.New("Must configure OutputServiceList to run this method")
 	}
 
-	refClient, _, err := g.checkRefClient(ctx)
+	refClient, conn, err := g.checkRefClient(ctx)
 	if err != nil {
 		return err
 	}
+	defer refClient.Reset()
+	defer conn.Close()
 
 	services, err := refClient.ListServices()
 	if err != nil {
@@ -99,10 +102,12 @@ func (g *GrpcGet) ListService(ctx context.Context, service string) error {
 		return errors.New("Must configure OutputService to run this method")
 	}
 
-	refClient, _, err := g.checkRefClient(ctx)
+	refClient, conn, err := g.checkRefClient(ctx)
 	if err != nil {
 		return err
 	}
+	defer refClient.Reset()
+	defer conn.Close()
 
 	svc, err := refClient.ResolveService(service)
 	if err != nil {
@@ -123,10 +128,12 @@ func (g *GrpcGet) Describe(ctx context.Context, symbol string) error {
 		return errors.New("Must configure OutputDescribe to run this method")
 	}
 
-	refClient, _, err := g.checkRefClient(ctx)
+	refClient, conn, err := g.checkRefClient(ctx)
 	if err != nil {
 		return err
 	}
+	defer refClient.Reset()
+	defer conn.Close()
 
 	file, err := refClient.FileContainingSymbol(symbol)
 	if err != nil {
@@ -159,6 +166,8 @@ func (g *GrpcGet) Invoke(ctx context.Context, method string, opts ...InvokeOptio
 	if err != nil {
 		return err
 	}
+	defer refClient.Reset()
+	defer conn.Close()
 
 	file, err := refClient.FileContainingSymbol(method)
 	if err != nil {
@@ -201,7 +210,11 @@ func (g *GrpcGet) Invoke(ctx context.Context, method string, opts ...InvokeOptio
 	var respTrailers metadata.MD
 
 	// invoke
-	resp, err := stub.InvokeRpc(ctx, md, req, grpc.Trailer(&respTrailers), grpc.Header(&respHeaders))
+	ctx, cancel := context.WithCancel(ctx)
+	resp, err := func() (proto.Message, error) {
+		defer cancel()
+		return stub.InvokeRpc(ctx, md, req, grpc.Trailer(&respTrailers), grpc.Header(&respHeaders))
+	}()
 	if err != nil {
 		return err
 	}
@@ -242,9 +255,9 @@ func WithConnectionSupplier(supplier ConnectionSupplier) GetOption {
 	}
 }
 
-func WithDefaultConnection(target string, opts ...grpc.DialOption) GetOption {
+func WithDefaultConnection(ctx context.Context, target string, opts ...grpc.DialOption) GetOption {
 	return func(o *getOptions) {
-		o.connectionSupplier = NewDefaultConnectionSupplier(target, opts...)
+		o.connectionSupplier = NewDefaultConnectionSupplier(ctx, target, opts...)
 	}
 }
 
