@@ -114,7 +114,7 @@ To set the various fields, these are sample invoke parameters:
     
 Notes:
 * For repeated items, the index must be set in sequential order, starting with 0.
-* Subsequent uses of the same map/repeated index sets the value on the same existing item.
+* Subsequent uses of the same map/repeated index sets the value on the existing item.
     
 ### library
 
@@ -140,6 +140,12 @@ You can create a field getter that allows you to omit the ".value" part:
     grpcget -plaintext invoke localhost:11300 app.MyService id="6708164e-2a56-4312-a66c-8f4de3b7b261"
 
 Set "DynMsgHelper" for details. 
+    
+### TODO
+
+* Customizable input/output (JSON, XML)
+* Support servers without reflection (read the .proto files directly)
+* Stream support
     
 ### acknowledgement
 
