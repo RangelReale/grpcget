@@ -15,20 +15,80 @@ But using output customizers it is easy to create a version that does output oth
 
 List all services:
 
-    grpcget -plaintext list localhost:11300
+```bash
+# grpcget -plaintext list localhost:50051
+```
+
+```
+grpc.reflection.v1alpha.ServerReflection
+helloworld.Greeter
+```
 
 List service methods:
 
-    grpcget -plaintext list localhost:11300 helloworld.Greeter 
+```bash
+# grpcget -plaintext list localhost:50051 helloworld.Greeter 
+```
+
+```
+    SayHello(helloworld.HelloRequest) returns (helloworld.HelloReply)
+```
 
 Describe symbol:
 
-    grpcget -plaintext describe localhost:11300 helloworld.Greeter 
-    grpcget -plaintext describe localhost:11300 helloworld.HelloRequest 
+```bash
+# grpcget -plaintext describe localhost:50051 helloworld.Greeter 
+```
+
+```
+Service: helloworld.Greeter
+    SayHello(HelloRequest) returns (HelloReply)
+```
+
+```bash
+# grpcget -plaintext describe localhost:50051 helloworld.HelloRequest 
+```
+
+```
+Message: helloworld.HelloRequest
+        name: TYPE_STRING
+```
+
+```bash
+# grpcget -plaintext describe localhost:50051 helloworld.Greeter.SayHello 
+```
+
+```
+Service RPC: helloworld.Greeter.SayHello
+        SayHello(HelloRequest) returns (HelloReply)
+                Request: helloworld.HelloRequest
+                        name: TYPE_STRING
+                Response: helloworld.HelloRequest
+                        message: TYPE_STRING
+```
 
 Invoke:
 
-    grpcget -plaintext invoke localhost:11300 helloworld.Greeter name="MyName"
+```bash
+# grpcget -plaintext invoke localhost:50051 helloworld.Greeter.SayHello name="Han Solo"
+```
+
+```
+message: Hello Han Solo
+```
+
+```bash
+# grpcget -plaintext invoke -describe localhost:50051 helloworld.Greeter.SayHello name="Rangel"
+```
+
+```
+Service RPC: helloworld.Greeter.SayHello
+        SayHello(HelloRequest) returns (HelloReply)
+                Request: helloworld.HelloRequest
+                        name: TYPE_STRING
+                Response: helloworld.HelloRequest
+                        message: TYPE_STRING
+```
     
 ### Invoke parameters
 
