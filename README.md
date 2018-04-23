@@ -11,6 +11,12 @@ The parameters for a method invocation are simple name=value parameters, and the
 The default implementation output is aimed to be user-friendly, not JSON or marchine parseable.
 But using output customizers it is easy to create a version that does output other formats. 
 
+### install
+
+```bash
+# go get github.com/RangelReale/grpcget/cmd/grpcget
+```
+
 ### example
 
 List all services:
