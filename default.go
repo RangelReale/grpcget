@@ -8,6 +8,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/protoc-gen-go/descriptor"
+	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/dynamic"
 	"google.golang.org/grpc"
@@ -284,8 +285,12 @@ func NewDefaultInvokeOutput(out io.Writer) *DefaultInvokeOutput {
 }
 
 func (d *DefaultInvokeOutput) OutputInvoke(dmh *DynMsgHelper, value proto.Message) error {
-	if rd, isrd := value.(*dynamic.Message); isrd {
-		return d.DumpMessage(dmh, 0, rd)
+	switch xvalue := value.(type) {
+	case *dynamic.Message:
+		return d.DumpMessage(dmh, 0, xvalue)
+	case *empty.Empty:
+		_, err := fmt.Fprint(d.Out, "Empty response received (google.protobuf.Empty)\n")
+		return err
 	}
 
 	return fmt.Errorf("Unknown respose, cannot output")
