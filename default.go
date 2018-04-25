@@ -288,7 +288,7 @@ func NewDefaultInvokeOutput(out io.Writer) *DefaultInvokeOutput {
 }
 
 func (d *DefaultInvokeOutput) OutputInvoke(dmh *DynMsgHelper, value proto.Message) error {
-	return d.DumpMessageCheck(dmh, 1, value)
+	return d.DumpMessageCheck(dmh, 0, value)
 }
 
 func (d *DefaultInvokeOutput) DumpMessageCheck(dmh *DynMsgHelper, level int, msg interface{}) error {
