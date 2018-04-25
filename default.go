@@ -8,10 +8,13 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/protoc-gen-go/descriptor"
+	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/empty"
+	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jhump/protoreflect/dynamic"
 	"google.golang.org/grpc"
+	"time"
 )
 
 //
@@ -285,15 +288,28 @@ func NewDefaultInvokeOutput(out io.Writer) *DefaultInvokeOutput {
 }
 
 func (d *DefaultInvokeOutput) OutputInvoke(dmh *DynMsgHelper, value proto.Message) error {
-	switch xvalue := value.(type) {
+	return d.DumpMessageCheck(dmh, 1, value)
+}
+
+func (d *DefaultInvokeOutput) DumpMessageCheck(dmh *DynMsgHelper, level int, msg interface{}) error {
+	levelStr := strings.Repeat("\t", level)
+
+	switch xvalue := msg.(type) {
 	case *dynamic.Message:
-		return d.DumpMessage(dmh, 0, xvalue)
+		return d.DumpMessage(dmh, level, xvalue)
 	case *empty.Empty:
-		_, err := fmt.Fprint(d.Out, "Empty response received (google.protobuf.Empty)\n")
+		_, err := fmt.Fprintf(d.Out, "%s<empty>\n", levelStr)
+		return err
+	case *timestamp.Timestamp:
+		t, err := ptypes.Timestamp(xvalue)
+		if err != nil {
+			return err
+		}
+		_, err = fmt.Fprintf(d.Out, "%s%s\n", levelStr, t.Format(time.RFC3339))
 		return err
 	}
 
-	return fmt.Errorf("Unknown respose, cannot output")
+	return fmt.Errorf("Unknown message type, cannot output")
 }
 
 func (d *DefaultInvokeOutput) DumpMessage(dmh *DynMsgHelper, level int, msg *dynamic.Message) error {
@@ -377,7 +393,7 @@ func (d *DefaultInvokeOutput) DumpMessage(dmh *DynMsgHelper, level int, msg *dyn
 
 						for ridx, ritem := range f_map {
 							fmt.Fprintf(d.Out, "%s\t- %v\n", levelStr, ridx)
-							err := d.DumpMessage(dmh, level+1, ritem.(*dynamic.Message))
+							err := d.DumpMessageCheck(dmh, level+1, ritem)
 							if err != nil {
 								return err
 							}
@@ -385,13 +401,13 @@ func (d *DefaultInvokeOutput) DumpMessage(dmh *DynMsgHelper, level int, msg *dyn
 					} else if fld.IsRepeated() {
 						for ridx := 0; ridx < msg.FieldLength(fld); ridx++ {
 							fmt.Fprintf(d.Out, "%s\t-\n", levelStr)
-							err := d.DumpMessage(dmh, level+1, msg.GetRepeatedField(fld, ridx).(*dynamic.Message))
+							err := d.DumpMessageCheck(dmh, level+1, msg.GetRepeatedField(fld, ridx))
 							if err != nil {
 								return err
 							}
 						}
 					} else {
-						err := d.DumpMessage(dmh, level+1, msg.GetField(fld).(*dynamic.Message))
+						err := d.DumpMessageCheck(dmh, level+1, msg.GetField(fld))
 						if err != nil {
 							return err
 						}

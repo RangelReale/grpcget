@@ -45,21 +45,21 @@ func NewCmd() *Cmd {
 		{
 			Name: "list",
 			Flags: []cli.Flag{
-				cli.StringSliceFlag{Name: "header", Usage: "Headers to send in name=value format."},
+				cli.StringSliceFlag{Name: "md", Usage: "Metadata to send in name=value format."},
 			},
 			Action: ret.CmdList,
 		},
 		{
 			Name: "describe",
 			Flags: []cli.Flag{
-				cli.StringSliceFlag{Name: "header", Usage: "Headers to send in name=value format."},
+				cli.StringSliceFlag{Name: "md", Usage: "Metadata to send in name=value format."},
 			},
 			Action: ret.CmdDescribe,
 		},
 		{
 			Name: "invoke",
 			Flags: []cli.Flag{
-				cli.StringSliceFlag{Name: "header", Usage: "Headers to send in name=value format."},
+				cli.StringSliceFlag{Name: "md", Usage: "Metadata to send in name=value format."},
 				cli.BoolFlag{Name: "describe", Usage: "Describe the method instead of invoking the function"},
 			},
 			Action: ret.CmdInvoke,
@@ -138,8 +138,8 @@ func (c *Cmd) getGrpcGet(ctx *cli.Context, target string) (*grpcget.GrpcGet, con
 	// metadata
 	var md metadata.MD
 
-	if len(ctx.StringSlice("header")) > 0 {
-		header_md := grpcget.MetadataFromHeaders(ctx.StringSlice("header"))
+	if len(ctx.StringSlice("md")) > 0 {
+		header_md := grpcget.MetadataFromHeaders(ctx.StringSlice("md"))
 		md = metadata.Join(md, header_md)
 	}
 
